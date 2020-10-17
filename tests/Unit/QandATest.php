@@ -4,7 +4,8 @@ namespace Tests\Unit;
 
 use App\Exceptions\DuplicateQuestionException;
 use App\Exceptions\InvalidInputException;
-use App\Repositories\QuestionsRepository;
+use App\Models\Question;
+use App\Repositories\QuestionRepository;
 use App\Services\QuestionService;
 use Faker\Provider\Lorem;
 use Tests\TestCase;
@@ -19,10 +20,10 @@ class QandATest extends TestCase
     protected function setUp(): void
     {
         parent::setup();
-        $this->service = new QuestionService(app(QuestionsRepository::class));
+        $this->service = new QuestionService(app(QuestionRepository::class));
     }
 
-    public function testIsNewStart()
+    public function testIsNewStartTrue()
     {
         $result = $this->service->isNewStart();
         $this->assertTrue($result);
@@ -50,7 +51,7 @@ class QandATest extends TestCase
         $this->assertTrue($result);
     }
 
-    public function testAddEmptyInputs()
+    public function testAddEmptyInputsExpectExceptions()
     {
         $this->expectException(InvalidInputException::class);
         $this->service->addQuestion('', Lorem::sentence(3));
@@ -59,13 +60,20 @@ class QandATest extends TestCase
         $this->service->addQuestion(Lorem::sentence(3), '');
     }
 
-    public function testSuccessAddQuestion()
+    public function testAddQuestionSuccessData()
     {
-        $result = $this->service->addQuestion(Lorem::sentence(3), Lorem::sentence(3));
-        $this->assertTrue($result);
+        $question = Lorem::sentence(3);
+        $answer = Lorem::sentence(3);
+        $this->service->addQuestion($question, $answer);
+
+        $questionData = app(QuestionRepository::class)->getQuestionByText($question);
+
+        $this->assertEquals($question, $questionData['question']);
+        $this->assertEquals($answer, $questionData['answer']);
+        $this->assertEquals('Unanswered', $questionData['status']);
     }
 
-    public function testDuplicateQuestion()
+    public function testDuplicateQuestionExpectException()
     {
         $question = Lorem::sentence(3);
         $this->service->addQuestion($question, Lorem::sentence(3));
@@ -74,10 +82,10 @@ class QandATest extends TestCase
         $this->service->addQuestion($question, Lorem::sentence(3));
     }
 
-    public function testWrongAnswer()
+    public function testWrongAnswerStatusSetFalse()
     {
         $this->service->addQuestion(Lorem::sentence(3), Lorem::sentence(3));
-        $questionData = $this->service->getAnUnansweredQuestion();
+        $questionData = $this->getAnUnansweredQuestion();
 
         $this->service->setStatus($questionData->toArray(), Lorem::sentence(3));
 
@@ -85,11 +93,11 @@ class QandATest extends TestCase
         $this->assertEquals('False', $questionData['status']);
     }
 
-    public function testTrueAnswer()
+    public function testTrueAnswerStatusSetTrue()
     {
         $answer = Lorem::sentence(3);
         $this->service->addQuestion(Lorem::sentence(3), $answer);
-        $questionData = $this->service->getAnUnansweredQuestion();
+        $questionData = $this->getAnUnansweredQuestion();
 
         $this->service->setStatus($questionData->toArray(), $questionData->answer);
 
@@ -100,12 +108,19 @@ class QandATest extends TestCase
     public function testIsFinishedTrue()
     {
         $this->service->addQuestion(Lorem::sentence(3), Lorem::sentence(3));
-        $questionData = $this->service->getAnUnansweredQuestion();
 
+        $questionData = $this->getAnUnansweredQuestion();
         $this->service->setStatus($questionData->toArray(), Lorem::sentence(3));
 
         $result = $this->service->isFinished();
         $this->assertTrue($result);
+    }
+
+
+    //for test process
+    private function getAnUnansweredQuestion()
+    {
+        return app(QuestionRepository::class)->findBy('status', Question::STATUS_UNANSWERED);
     }
 
 }

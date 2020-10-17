@@ -17,7 +17,7 @@ class CreateQuestionsTable extends Migration
             $table->increments('id');
             $table->text('question');
             $table->text('answer');
-            $table->boolean('status')->default(\App\Models\Questions::STATUS_UNANSWERED);
+            $table->boolean('status')->default(\App\Models\Question::STATUS_UNANSWERED);
             //$table->timestamps();
         });
     }

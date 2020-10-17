@@ -29,6 +29,11 @@ class QAndA extends Command
     protected $questionService;
 
     /**
+     * @var string
+     */
+    protected $previousJob = '';
+
+    /**
      * QAndA constructor.
      * @param QuestionService $questionService
      */
@@ -56,13 +61,12 @@ class QAndA extends Command
 
     private function mainScreen()
     {
-        $choice = $this->getInput('choice', __('qanda.main_question'), ["add", "list", "exit"], "add");
+        $choice = $this->getInput('choice', __('qanda.main_question'), 'mainScreen', ["add", "list", "exit"], "add");
         if ($choice == 'add') {
             $this->addQuestion();
         } elseif ($choice == 'list') {
-            while (!$this->questionService->isFinished()) {
+            while (!$this->questionService->isFinished()) { //list and practice questions until all answered
                 $this->listQuestions();
-                $this->selectQuestion();
             }
             $this->showOverview();
         }
@@ -71,15 +75,16 @@ class QAndA extends Command
 
     private function addQuestion()
     {
-        try{
-            $questionText = $this->getInput('ask', __('qanda.new_question'));
-            $answerText = $this->getInput('ask', __('qanda.new_answer'));
+        try {
+            $this->previousJob = 'mainScreen';
+            $questionText = $this->getInput('ask', __('qanda.new_question'), 'addQuestion');
+            $answerText = $this->getInput('ask', __('qanda.new_answer'), 'mainScreen');
             $this->questionService->addQuestion($questionText, $answerText);
-        }catch (InvalidInputException | DuplicateQuestionException $e){
+        } catch (InvalidInputException | DuplicateQuestionException $e) {
             $this->error($e->getMessage());
-            sleep(1);
+            sleep(1);  //show user the error for 1 second, then ask again
             $this->addQuestion();
-        }catch (\Exception $e){
+        } catch (\Exception $e) {
             $this->error(__('qanda.error.general'));
             sleep(1);
         }
@@ -93,21 +98,25 @@ class QAndA extends Command
         $headers = ['ID', 'Question', 'Status'];
         $questions = $this->questionService->getQuestionTableData();
         $this->table($headers, $questions);
+        if (!$this->questionService->isFinished()) {
+            $this->selectQuestion(); //ask question id for practice, if there are any unanswered ones.
+        }
     }
 
     private function selectQuestion()
     {
-        $questionId = (int)$this->getInput('ask', __('qanda.select_q_id'), [], '', false);
+        $questionId = (int)$this->getInput('ask', __('qanda.select_q_id'), 'mainScreen', [], '', false);
 
         $questionData = $this->questionService->getQuestionDetail($questionId);
         if ($questionData && $questionData['status'] == 'Unanswered') {
+            $this->previousJob = 'listQuestions';
             $this->answerQuestion($questionData);
         }
     }
 
     private function answerQuestion($questionData)
     {
-        $answer = $this->getInput('ask', $questionData['question'], 'answerQuestion');
+        $answer = $this->getInput('ask', $questionData['question'], 'mainScreen');
         if ($answer) {
             $this->questionService->setStatus($questionData, $answer);
         }
@@ -118,37 +127,53 @@ class QAndA extends Command
         $this->listQuestions();
         $bar = $this->output->createProgressBar($this->questionService->questionCount());
         $bar->advance($this->questionService->trueQuestionCount());
-        if ($this->getInput('confirm', __('qanda.reset_confirm'),[],'',false)) {
+
+        //ask for reset the progress
+        if ($this->getInput('confirm', __('qanda.reset_confirm'), '', [], '', false)) {
             $this->call('qanda:reset');
         }
     }
 
 
-
     /**
      * @param $type
      * @param $text
+     * @param string $previousJob
      * @param array $options
      * @param string $default
      * @param bool $clearScreen
-     * @return string
+     * @return mixed|string
      */
-    private function getInput($type, $text, $options = [], $default = '', $clearScreen = true)
+    private function getInput($type, $text, $previousJob = '', $options = [], $default = '', $clearScreen = true)
     {
+        //refresh screen
         if ($clearScreen) {
             system('clear');
         }
 
+        //choice - ask - confirm
         if ($type == 'choice') {
             $input = $this->choice($text, $options, $default);
-        }
-        else {
-            $input = $this->$type($text);
+        } else {
+            $input = $this->{$type}($text);
         }
 
+        //quit to console
         if ($input === 'exit') {
             exit();
         }
+
+        //go back to previous job
+        if ($input === 'back' && $this->previousJob != '') {
+            $this->{$this->previousJob}();
+            $this->previousJob = $previousJob;
+            return;
+        }
+
+        if ($previousJob != '') {
+            $this->previousJob = $previousJob;
+        }
+
 
         return $input;
     }
