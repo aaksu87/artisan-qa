@@ -1,6 +1,7 @@
 <?php
 namespace App\Repositories;
 
+use App\Models\Progress;
 use Illuminate\Database\Eloquent\Collection;
 use App\Models\Question;
 use App\Repositories\Core\Repository;
@@ -18,13 +19,27 @@ class QuestionRepository extends Repository
     }
 
     /**
+     * @return \Illuminate\Database\Eloquent\Builder[]|Collection|\Illuminate\Support\Collection
+     */
+    public function allDataWithProgress(){
+        return $this->model->newQuery()
+            ->with('progress')
+            ->get()->map(function($items){
+                $data['id'] = $items->id;
+                $data['question'] = $items->question;
+                $data['status'] = $items->progress['status'];
+           return $data;
+        });
+    }
+
+    /**
      * @return Collection
      */
     public function unansweredQuestions(): Collection
     {
-        return $this->model->newQuery()
-            ->where('status', Question::STATUS_UNANSWERED)
-            ->get();
+        return $this->model->newQuery()->whereHas('progress', function ($query) {
+            return $query->where('status', '=', Progress::STATUS_UNANSWERED);
+        })->get();
     }
 
     /**
@@ -32,9 +47,9 @@ class QuestionRepository extends Repository
      */
     public function trueQuestions(): Collection
     {
-        return $this->model->newQuery()
-            ->where('status', Question::STATUS_TRUE)
-            ->get();
+        return $this->model->newQuery()->whereHas('progress', function ($query) {
+            return $query->where('status', '=', Progress::STATUS_TRUE);
+        })->get();
     }
 
     /**
@@ -49,8 +64,8 @@ class QuestionRepository extends Repository
     public function resetProgress()
     {
         $this->model->newQuery()
-            ->where('status' ,'!=', Question::STATUS_UNANSWERED)
-            ->update(['status' => Question::STATUS_UNANSWERED]);
+            ->where('status' ,'!=', Progress::STATUS_UNANSWERED)
+            ->update(['status' => Progress::STATUS_UNANSWERED]);
     }
 
 

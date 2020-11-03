@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\DuplicateQuestionException;
 use App\Exceptions\InvalidInputException;
+use App\Models\Progress;
 use App\Models\Question;
 use App\Repositories\QuestionRepository;
 
@@ -93,7 +94,8 @@ class QuestionService
             throw new DuplicateQuestionException(__('qanda.error.duplicate_question'));
         }
 
-        $this->questionRepository->create(['question' => $question, 'answer' => $answer]);
+        $question = $this->questionRepository->create(['question' => $question, 'answer' => $answer]);
+        $question->progress()->create(['answer'=>Progress::STATUS_UNANSWERED]);
     }
 
     /**
@@ -101,7 +103,7 @@ class QuestionService
      */
     public function getQuestionTableData()
     {
-        return $this->questionRepository->all(['id', 'question', 'status'])->toArray();
+        return $this->questionRepository->allDataWithProgress()->toArray();
     }
 
     /**
@@ -111,23 +113,7 @@ class QuestionService
     public function getQuestionDetail(int $id)
     {
         $detail = $this->questionRepository->find($id);
-        return $detail ? $detail->toArray() : false;
-    }
-
-    /**
-     * @param array $questionData
-     * @param string $userAnswer
-     * @return int
-     */
-    public function setStatus(array $questionData, string $userAnswer)
-    {
-        $status = ($questionData['answer'] == $userAnswer) ? Question::STATUS_TRUE : Question::STATUS_FALSE;
-        return $this->questionRepository->update(['status' => $status], $questionData['id']);
-    }
-
-    public function resetProgress()
-    {
-        $this->questionRepository->resetProgress();
+        return $detail ?? false;
     }
 
 }

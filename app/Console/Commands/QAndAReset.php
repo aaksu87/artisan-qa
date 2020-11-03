@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\QuestionService;
+use App\Services\ProgressService;
 use Illuminate\Console\Command;
 
 class QAndAReset extends Command
@@ -19,21 +19,21 @@ class QAndAReset extends Command
      *
      * @var string
      */
-    protected $description = 'Truncate the question table for reset Q&A process';
+    protected $description = 'Reset the progress table to unanswered';
 
     /**
-     * @var QuestionService $questionService
+     * @var ProgressService $progressService
      */
-    protected $questionService;
+    protected $progressService;
 
     /**
      * QAndAReset constructor.
-     * @param QuestionService $questionService
+     * @param ProgressService $progressService
      */
-    public function __construct(QuestionService $questionService)
+    public function __construct(ProgressService $progressService)
     {
         parent::__construct();
-        $this->questionService = $questionService;
+        $this->progressService = $progressService;
     }
 
     /**
@@ -43,6 +43,6 @@ class QAndAReset extends Command
      */
     public function handle()
     {
-        $this->questionService->resetProgress();
+        $this->progressService->resetProgress();
     }
 }

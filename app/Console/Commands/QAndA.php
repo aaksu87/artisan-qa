@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Exceptions\DuplicateQuestionException;
 use App\Exceptions\InvalidInputException;
+use App\Services\ProgressService;
 use App\Services\QuestionService;
 use Illuminate\Console\Command;
 
@@ -29,6 +30,11 @@ class QAndA extends Command
     protected $questionService;
 
     /**
+     * @var ProgressService $progressService
+     */
+    protected $progressService;
+
+    /**
      * @var string
      */
     protected $previousJob = '';
@@ -36,11 +42,13 @@ class QAndA extends Command
     /**
      * QAndA constructor.
      * @param QuestionService $questionService
+     * @param ProgressService $progressService
      */
-    public function __construct(QuestionService $questionService)
+    public function __construct(QuestionService $questionService, ProgressService $progressService)
     {
         parent::__construct();
         $this->questionService = $questionService;
+        $this->progressService = $progressService;
     }
 
     /**
@@ -108,7 +116,7 @@ class QAndA extends Command
         $questionId = (int)$this->getInput('ask', __('qanda.select_q_id'), 'mainScreen', [], '', false);
 
         $questionData = $this->questionService->getQuestionDetail($questionId);
-        if ($questionData && $questionData['status'] == 'Unanswered') {
+        if ($questionData && $questionData->progress->status == 'Unanswered') {
             $this->previousJob = 'listQuestions';
             $this->answerQuestion($questionData);
         }
@@ -116,9 +124,9 @@ class QAndA extends Command
 
     private function answerQuestion($questionData)
     {
-        $answer = $this->getInput('ask', $questionData['question'], 'mainScreen');
+        $answer = $this->getInput('ask', $questionData->question, 'mainScreen');
         if ($answer) {
-            $this->questionService->setStatus($questionData, $answer);
+            $this->progressService->setStatus($questionData, $answer);
         }
     }
 

@@ -6,10 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Question extends Model
 {
-    public const STATUS_UNANSWERED = 0;
-    public const STATUS_TRUE = 1;
-    public const STATUS_FALSE = 2;
-
     /**
      * @var string
      */
@@ -24,16 +20,12 @@ class Question extends Model
      * @var string[]
      */
     protected $fillable = [
-        'question', 'answer', 'status'
+        'question', 'answer'
     ];
 
-    /**
-     * @param $value
-     * @return string
-     */
-    public function getStatusAttribute($value)
+    public function progress()
     {
-        return ['Unanswered','True','False'][$value];
+        return $this->hasOne(Progress::class,'question_id');
     }
 
 }
