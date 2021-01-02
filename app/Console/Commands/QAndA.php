@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Exceptions\DuplicateQuestionException;
 use App\Exceptions\InvalidInputException;
+use App\Exceptions\NoDataException;
 use App\Services\ProgressService;
 use App\Services\QuestionService;
 use Illuminate\Console\Command;
@@ -58,18 +59,14 @@ class QAndA extends Command
      */
     public function handle()
     {
-        if ($this->questionService->isFinished()) { //when all questions are answered
-            $this->showOverview();
-        } elseif ($this->questionService->isNewStart()) { //when the interaction is starting new
-            $this->addQuestion();
-        } else {
-            $this->mainScreen();
-        }
+        system('clear');
+        $this->info(__('qanda.welcome'));
+        $this->mainScreen(false);
     }
 
-    private function mainScreen()
+    private function mainScreen($clearScreen = true)
     {
-        $choice = $this->getInput('choice', __('qanda.main_question'), 'mainScreen', ["add", "list", "exit"], "add");
+        $choice = $this->getInput('choice', __('qanda.main_question'), 'mainScreen', ["add", "list", "exit"], "add", $clearScreen);
         if ($choice == 'add') {
             $this->addQuestion();
         } elseif ($choice == 'list') {
@@ -103,11 +100,18 @@ class QAndA extends Command
     private function listQuestions()
     {
         system('clear');
-        $headers = ['ID', 'Question', 'Status'];
-        $questions = $this->questionService->getQuestionTableData();
-        $this->table($headers, $questions);
-        if (!$this->questionService->isFinished()) {
-            $this->selectQuestion(); //ask question id for practice, if there are any unanswered ones.
+        try{
+            $questions = $this->questionService->getQuestionTableData();
+
+            $headers = ['ID', 'Question', 'Status'];
+            $this->table($headers, $questions);
+            if (!$this->questionService->isFinished()) {
+                $this->selectQuestion(); //ask question id for practice, if there are any unanswered ones.
+            }
+        } catch (NoDataException $e) {
+            $this->error($e->getMessage());
+            sleep(1);  //show user the error for 1 second, then ask again
+            $this->mainScreen();
         }
     }
 
@@ -119,12 +123,17 @@ class QAndA extends Command
         if ($questionData && $questionData->progress->status == 'Unanswered') {
             $this->previousJob = 'listQuestions';
             $this->answerQuestion($questionData);
+        }else{
+            system('clear');
+            $this->error(__('qanda.error.invalid_question_id'));
+            sleep(1);  //show user the error for 1 second, then ask again
+            $this->listQuestions();
         }
     }
 
     private function answerQuestion($questionData)
     {
-        $answer = $this->getInput('ask', $questionData->question, 'mainScreen');
+        $answer = $this->getInput('ask', __('qanda.question').$questionData->question.__('qanda.answer'), 'mainScreen');
         if ($answer) {
             $this->progressService->setStatus($questionData, $answer);
         }
@@ -133,6 +142,7 @@ class QAndA extends Command
     private function showOverview()
     {
         $this->listQuestions();
+        $this->info(__('qanda.final_process'));
         $bar = $this->output->createProgressBar($this->questionService->questionCount());
         $bar->advance($this->questionService->trueQuestionCount());
 

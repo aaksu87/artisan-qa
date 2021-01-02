@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\DuplicateQuestionException;
 use App\Exceptions\InvalidInputException;
+use App\Exceptions\NoDataException;
 use App\Models\Progress;
 use App\Models\Question;
 use App\Repositories\QuestionRepository;
@@ -103,7 +104,12 @@ class QuestionService
      */
     public function getQuestionTableData()
     {
-        return $this->questionRepository->allDataWithProgress()->toArray();
+        $data = $this->questionRepository->allDataWithProgress();
+
+        if ($data->isEmpty()) {
+            throw new NoDataException(__('qanda.error.no_question_data'));
+        }
+        return $data->toArray();
     }
 
     /**
